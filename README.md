@@ -2,7 +2,7 @@
 
 A single-file, dependency-free web app for building print-ready photo books — entirely in your browser, fully offline. Open `index.html` (or the hosted page), make a book, and Print → Save as PDF.
 
-**Live:** https://spacerat.github.io/photobook/
+**Live:** https://veryjoe.com/photobook/
 
 ## Features
 - Multiple photo-book projects, each with a chosen page size (square / landscape / portrait).

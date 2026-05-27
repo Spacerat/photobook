@@ -29,11 +29,37 @@
   h1,h2,h3{margin:0}
   .hidden{display:none !important}
 
-  /* ---------- Library ---------- */
-  #library{max-width:1000px;margin:0 auto;padding:32px 20px 80px}
-  .lib-head{display:flex;align-items:center;gap:14px;margin-bottom:24px}
-  .lib-head h1{font-size:24px;font-weight:700;flex:1}
+  /* ---------- Library / landing ---------- */
+  #library{max-width:980px;margin:0 auto;padding:40px 20px 90px}
+  .hero{text-align:center;padding:18px 0 6px}
+  .brand{display:inline-flex;gap:7px;align-items:center;font-size:14px;font-weight:700;color:var(--accent);
+         letter-spacing:.3px;text-transform:uppercase}
+  .hero-title{font-size:34px;font-weight:800;line-height:1.14;letter-spacing:-.6px;margin:16px auto 0;max-width:18ch}
+  .hero-lead{font-size:16px;color:#4b5563;max-width:60ch;margin:15px auto 0;line-height:1.6}
+  .hero-cta{display:flex;gap:10px;justify-content:center;margin:24px 0 0;flex-wrap:wrap}
+  button.big{padding:11px 20px;font-size:15px;border-radius:10px}
+  .privacy{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:#3550a0;margin-top:18px;
+           background:#eef3ff;padding:8px 15px;border-radius:999px;border:1px solid #dbe4ff}
+  .isnt{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:38px 0 0}
+  .isnt-card{border:1px solid var(--line);border-radius:13px;padding:18px 20px}
+  .isnt-card h3{font-size:15px;font-weight:700;margin-bottom:11px}
+  .isnt-card.is{background:#f3faf5;border-color:#cfe9d8}
+  .isnt-card.is h3{color:#1a8a4c}
+  .isnt-card.not{background:#fbf6f3;border-color:#eed9cd}
+  .isnt-card.not h3{color:#b45a36}
+  .isnt-card ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+  .isnt-card li{font-size:13.5px;color:#374151;padding-left:23px;position:relative;line-height:1.45}
+  .isnt-card.is li::before{content:"✓";position:absolute;left:0;top:0;color:#1a9e54;font-weight:800}
+  .isnt-card.not li::before{content:"✕";position:absolute;left:0;top:0;color:#c0623a;font-weight:800}
+  .gallery{margin-top:46px}
+  .gallery-head{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .gallery-head h2{font-size:19px;font-weight:700}
+  .gallery-head .count{font-size:12px;background:#eef0f4;color:var(--muted);border-radius:999px;padding:2px 10px;font-weight:600}
+  .gallery-empty{text-align:center;padding:44px 16px;border:1.5px dashed var(--line);border-radius:16px;background:#fafbfc}
+  .gallery-empty .ge-emoji{font-size:42px;opacity:.7}
+  .gallery-empty p{color:var(--muted);margin:10px 0 18px;font-size:15px}
   .lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px}
+  @media(max-width:640px){ .isnt{grid-template-columns:1fr} .hero-title{font-size:27px} }
   .book-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;
              box-shadow:var(--shadow);cursor:pointer;transition:transform .08s}
   .book-card:hover{transform:translateY(-2px)}
@@ -587,19 +613,56 @@ function renderLibrary(){
   revokeUrls();
   state.view = "library"; state.book = null;
   document.getElementById("print-page-size").textContent = "@page{size:8in 8in;margin:0}";
-  const grid = state.books.length ? state.books.map(bookCard).join("") :
-    `<div class="empty">No books yet. Create your first photo book.</div>`;
+  const hasBooks = state.books.length > 0;
+  const gallery = hasBooks
+    ? `<div class="gallery-head"><h2>Your books</h2><span class="count">${state.books.length}</span></div>
+       <div class="lib-grid">${state.books.map(bookCard).join("")}</div>`
+    : `<div class="gallery-empty">
+         <div class="ge-emoji">🖼️</div>
+         <p>No books yet — start one and drop your photos in.</p>
+         <button class="primary big" id="newBookBtn2">+ Create your first book</button>
+       </div>`;
   root.innerHTML = `
     <div id="library" class="app-chrome">
-      <div class="lib-head">
-        <h1>📚 Photobook</h1>
-        <input type="file" id="importInput" class="hidden" multiple accept=".json,application/json,image/jpeg,image/png">
-        <button id="importBtn" title="Import a project from an exported file + its images">⬆ Import project</button>
-        <button class="primary" id="newBookBtn">+ New book</button>
-      </div>
-      <div class="lib-grid">${grid}</div>
+      <header class="hero">
+        <div class="brand">📚 Photobook</div>
+        <h1 class="hero-title">Make simple photo books with zero hassle</h1>
+        <p class="hero-lead">Upload your photos, add captions and titles, see them automatically
+          arranged, then print or save to a PDF.</p>
+        <div class="hero-cta">
+          <input type="file" id="importInput" class="hidden" multiple accept=".json,application/json,image/jpeg,image/png">
+          <button class="primary big" id="newBookBtn">+ New book</button>
+          <button class="big" id="importBtn" title="Import a project from an exported file + its images">⬆ Import project</button>
+        </div>
+        <div class="privacy">🔒 Everything runs in your browser — your photos never leave your device, and nothing is uploaded.</div>
+      </header>
+
+      ${hasBooks ? "" : `<section class="isnt">
+        <div class="isnt-card is">
+          <h3>Photobook is</h3>
+          <ul>
+            <li>Free — no account, no sign-up</li>
+            <li>Private — photos stay on your device</li>
+            <li>Automatic — chronological page layout</li>
+            <li>Powerful (enough) — captions, titles, text and page breaks</li>
+          </ul>
+        </div>
+        <div class="isnt-card not">
+          <h3>Photobook is not</h3>
+          <ul>
+            <li>A service that prints or ships a book</li>
+            <li>A store — nothing is for sale</li>
+            <li>A themes or templates marketplace</li>
+            <li>A website that uploads your photos</li>
+          </ul>
+        </div>
+      </section>`}
+
+      <section class="gallery">${gallery}</section>
     </div>`;
-  document.getElementById("newBookBtn").onclick = openNewBookModal;
+  const openNew = () => openNewBookModal();
+  document.getElementById("newBookBtn").onclick = openNew;
+  const nb2 = document.getElementById("newBookBtn2"); if (nb2) nb2.onclick = openNew;
   document.getElementById("importBtn").onclick = () => document.getElementById("importInput").click();
   document.getElementById("importInput").onchange = e => importProject(e.target.files);
   state.books.forEach(b=>{

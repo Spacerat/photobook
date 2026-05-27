@@ -1,0 +1,3 @@
+# dev-only synthetic test images (not part of the app)
+test-fixtures/
+.DS_Store

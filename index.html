@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photobook</title>
+<style>
+  :root{
+    --bg:#f3f4f6; --panel:#ffffff; --ink:#1f2430; --muted:#6b7280;
+    --line:#e5e7eb; --accent:#3b6ef5; --accent-ink:#fff; --danger:#dc2626;
+    --shadow:0 1px 3px rgba(0,0,0,.12),0 8px 24px rgba(0,0,0,.08);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       color:var(--ink);background:var(--bg)}
+  button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--ink);
+         padding:6px 11px;border-radius:7px}
+  button:hover{background:#f7f8fa}
+  button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  button.primary:hover{filter:brightness(1.05)}
+  button.danger{color:var(--danger);border-color:#f0c9c9}
+  button.ghost{border-color:transparent;background:transparent}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  input,select,textarea{font:inherit;color:var(--ink);border:1px solid var(--line);border-radius:7px;
+         padding:6px 8px;background:#fff;width:100%}
+  textarea{resize:vertical}
+  label{font-size:12px;color:var(--muted)}
+  h1,h2,h3{margin:0}
+  .hidden{display:none !important}
+
+  /* ---------- Library ---------- */
+  #library{max-width:1000px;margin:0 auto;padding:32px 20px 80px}
+  .lib-head{display:flex;align-items:center;gap:14px;margin-bottom:24px}
+  .lib-head h1{font-size:24px;font-weight:700;flex:1}
+  .lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px}
+  .book-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;
+             box-shadow:var(--shadow);cursor:pointer;transition:transform .08s}
+  .book-card:hover{transform:translateY(-2px)}
+  .book-cover{aspect-ratio:4/3;background:#e9ebf0 center/cover no-repeat;display:flex;align-items:center;
+              justify-content:center;color:#aab0bd;font-size:32px}
+  .book-meta{padding:11px 13px}
+  .book-meta .t{font-weight:600;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .book-meta .s{font-size:12px;color:var(--muted)}
+  .book-card .row{display:flex;gap:6px;padding:0 13px 12px}
+
+  /* ---------- Editor ---------- */
+  #editor{display:flex;flex-direction:column;height:100%}
+  .toolbar{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--panel);
+           border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .toolbar .title-in{width:200px;font-weight:600}
+  .toolbar .sp{flex:1}
+  .editor-body{flex:1;display:flex;min-height:0}
+  .sidebar{width:320px;background:var(--panel);border-right:1px solid var(--line);overflow:auto;
+           display:flex;flex-direction:column}
+  .sidebar.filedrop{outline:2px dashed var(--accent);outline-offset:-6px;background:#eef3ff}
+  .sidebar-head{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
+  .sidebar-head .sp{flex:1}
+  .tl{padding:8px;display:flex;flex-direction:column;gap:7px}
+  .tl-item{border:1px solid var(--line);border-radius:9px;padding:8px;display:flex;gap:9px;background:#fff}
+  .tl-item.sel{outline:2px solid var(--accent);outline-offset:-1px}
+  .tl-item.dragover{border-color:var(--accent);border-style:dashed}
+  .tl-thumb{width:62px;height:62px;border-radius:6px;background:#e9ebf0 center/cover no-repeat;flex:none;
+            position:relative;cursor:grab}
+  .tl-sec-badge{position:absolute;left:0;bottom:0;right:0;font-size:9px;background:rgba(59,110,245,.92);
+                color:#fff;padding:1px 3px;border-bottom-left-radius:6px;border-bottom-right-radius:6px;
+                white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tl-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+  .tl-main textarea{font-size:12px;min-height:34px;padding:4px 6px}
+  .tl-date{font-size:11px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .tl-date input{width:140px;padding:2px 5px;font-size:11px}
+  .tl-date.nodate input{border-color:#e0a106;background:#fffaf0}
+  .tl-date .warn{color:#b06d12;font-size:10px;font-weight:600}
+  .tl-place{display:flex;gap:5px;flex-wrap:wrap;font-size:11px}
+  .tl-place .seg{display:flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+  .tl-place .seg button{border:0;border-radius:0;padding:2px 7px;font-size:11px;background:#fff}
+  .tl-place .seg button.on{background:var(--accent);color:#fff}
+  .tl-actions{display:flex;gap:4px;flex-wrap:wrap}
+  .tl-actions button{padding:3px 7px;font-size:11px}
+  .tl-sep{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;
+          border:1px dashed var(--line);border-radius:9px;padding:6px 9px;background:#fafbfc}
+  .tl-sep .ln{flex:1;border-top:1px dashed #c9cdd6}
+  .tl-sep button,.tl-title button{padding:1px 7px;font-size:12px;line-height:1.2}
+  .tl-title{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:9px;
+            padding:6px 9px;background:#fff7ec}
+  .tl-title .tg{font-weight:700;color:#b06d12;background:#ffe7c2;border-radius:5px;
+                width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:12px;flex:none}
+  .tl-title input{font-weight:600}
+  .tl-text{display:flex;align-items:flex-start;gap:8px;border:1px solid var(--line);border-radius:9px;
+           padding:6px 9px;background:#f4f6fb}
+  .tl-text .tg-text{background:#dbe3f5;color:#3550a0}
+  .tl-text textarea{font-size:12px;min-height:46px;padding:4px 6px}
+  .tl-linebreak{color:#8a93a3;background:#fcfcfd}
+  .tl-linebreak .ln{border-top-style:solid;border-color:#e3e6ec}
+  .hint-text{font-size:10px;color:var(--muted)}
+  .tl-gap .gbtns{flex-wrap:wrap;justify-content:center}
+  .tl-item.linked{border-top-style:dashed;margin-top:-3px}
+  .tl-link{font-size:11px;color:var(--accent)}
+  .tl-link.on{font-weight:700}
+  /* hover-reveal insert points between timeline rows */
+  .tl-gap{display:flex;align-items:center;justify-content:center;gap:6px;height:12px;cursor:default}
+  .tl-gap .hint{color:#cdd2db;font-size:14px;line-height:1}
+  .tl-gap .gbtns{display:none;gap:6px}
+  .tl-gap:hover{height:auto;padding:3px 0}
+  .tl-gap:hover .hint{display:none}
+  .tl-gap:hover .gbtns{display:flex}
+  .tl-gap button{font-size:11px;padding:2px 9px;border-radius:6px}
+
+  .pages-area{flex:1;overflow:auto;padding:26px;display:flex;flex-direction:column;align-items:center;gap:26px;
+              background:#e7e9ee}
+  .page-wrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .page-label{font-size:11px;color:var(--muted)}
+  /* a .page is sized in real inches; preview is scaled with CSS zoom */
+  .page{position:relative;background:#fff;box-shadow:var(--shadow);overflow:hidden}
+  .ph{position:absolute;background:#dfe3ea}
+  .ph.clip{overflow:hidden}                 /* only when an in-photo overlay needs clipping */
+  .ph img{width:100%;height:100%;object-fit:fill;display:block}  /* box matches aspect => no distortion; avoids cover's rasterization on print */
+  .ph .scrim{position:absolute;left:0;right:0;bottom:0;height:46%;
+             background:linear-gradient(to top,rgba(0,0,0,.66),rgba(0,0,0,0));pointer-events:none}
+  .ph .in-cap{position:absolute;left:0;right:0;bottom:0;color:#fff;padding:4% 5%;font-size:var(--capfs);
+              line-height:1.25;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+  .cap-below{position:absolute;color:#222;font-size:var(--capfs);line-height:1.22;overflow:hidden;
+             text-align:center}
+  /* full-width inline title band: centered text, padded, underlined */
+  .page-title{position:absolute;display:flex;align-items:flex-end;justify-content:center;text-align:center;
+              font-weight:700;color:#1f2430;border-bottom:0.012in solid #1f2430;
+              padding:0 0.25in 0.06in;overflow:hidden;white-space:nowrap}
+  /* full-width body text block: normal weight, left-aligned, no underline, wraps */
+  .page-text{position:absolute;color:#1f2430;line-height:1.45;white-space:pre-wrap;overflow:hidden;
+             text-align:left;padding:0.06in 0.05in}
+
+  /* ---------- Modal ---------- */
+  .modal-bg{position:fixed;inset:0;background:rgba(15,18,28,.45);display:flex;align-items:center;
+            justify-content:center;z-index:50}
+  .modal{background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:22px;width:min(440px,92vw)}
+  .modal h2{font-size:18px;margin-bottom:14px}
+  .field{margin-bottom:13px}
+  .field label{display:block;margin-bottom:4px}
+  .size-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .size-opt{border:1px solid var(--line);border-radius:9px;padding:10px;cursor:pointer;text-align:center}
+  .size-opt.on{border-color:var(--accent);background:#eef3ff}
+  .size-opt .nm{font-weight:600}
+  .size-opt .dm{font-size:12px;color:var(--muted)}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
+  .empty{color:var(--muted);text-align:center;padding:40px 10px}
+
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1f2430;color:#fff;
+         padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .25s;z-index:60;
+         pointer-events:none}
+  .toast.show{opacity:.95}
+
+  /* ---------- Print ---------- */
+  @media print{
+    .app-chrome{display:none !important}
+    html,body{background:#fff;height:auto;overflow:visible}
+    /* flatten the flex editor shell so every page flows (otherwise only page 1 prints) */
+    #editor,.editor-body{display:block;height:auto;min-height:0;overflow:visible}
+    .pages-area{padding:0;gap:0;background:#fff;overflow:visible;display:block;height:auto}
+    .page-wrap{display:block}
+    .page-label{display:none}
+    .page{box-shadow:none;zoom:1 !important;break-after:page;break-inside:avoid;margin:0}
+    .page:last-child{break-after:auto}
+    *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div class="toast" id="toast"></div>
+<style id="print-page-size">@page{size:8in 8in;margin:0}</style>
+
+<script>
+"use strict";
+/* =========================================================================
+   Photobook — single-file, dependency-free.
+   Sections: DB (IndexedDB) · EXIF · Model · Layout engine · Render · UI · Print
+   ========================================================================= */
+
+/* ----------------------------- IndexedDB -------------------------------- */
+const DB = (() => {
+  let dbp = null;
+  function open(){
+    if (dbp) return dbp;
+    dbp = new Promise((res, rej) => {
+      const r = indexedDB.open("photobook", 1);
+      r.onupgradeneeded = () => {
+        const db = r.result;
+        if (!db.objectStoreNames.contains("books")) db.createObjectStore("books", {keyPath:"id"});
+        if (!db.objectStoreNames.contains("blobs")) db.createObjectStore("blobs");
+      };
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    return dbp;
+  }
+  function tx(store, mode){ return open().then(db => db.transaction(store, mode).objectStore(store)); }
+  function p(req){ return new Promise((res,rej)=>{ req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); }); }
+  return {
+    putBook: b => tx("books","readwrite").then(s => p(s.put(b))),
+    getBook: id => tx("books","readonly").then(s => p(s.get(id))),
+    allBooks: () => tx("books","readonly").then(s => p(s.getAll())),
+    delBook: id => tx("books","readwrite").then(s => p(s.delete(id))),
+    putBlob: (k,blob) => tx("blobs","readwrite").then(s => p(s.put(blob,k))),
+    getBlob: k => tx("blobs","readonly").then(s => p(s.get(k))),
+    delBlob: k => tx("blobs","readwrite").then(s => p(s.delete(k))),
+  };
+})();
+
+/* ------------------------------- EXIF ----------------------------------- */
+// Parse JPEG Exif DateTimeOriginal (0x9003) -> Date. Scans ALL APP1 segments, because
+// many files carry an XMP APP1 before the Exif APP1 (don't bail on the first one).
+function parseExifDate(buf){
+  try{
+    const dv = new DataView(buf);
+    if (dv.getUint16(0) !== 0xFFD8) return null;            // not JPEG
+    let off = 2;
+    const len = dv.byteLength;
+    while (off + 4 <= len){
+      if (dv.getUint8(off) !== 0xFF) break;
+      const marker = dv.getUint8(off+1);
+      if (marker === 0xDA || marker === 0xD9) break;        // start-of-scan / end -> no more metadata
+      const size = dv.getUint16(off+2);
+      if (size < 2) break;
+      if (marker === 0xE1){                                  // APP1 (Exif or XMP)
+        const start = off + 4;
+        if (start + 8 <= len && dv.getUint32(start) === 0x45786966 && dv.getUint16(start+4) === 0x0000){
+          const d = readExifApp1(dv, start + 6);             // "Exif\0\0" -> TIFF header
+          if (d) return d;
+        }
+        // not Exif (e.g. XMP), or Exif without a date -> keep scanning later segments
+      }
+      off += 2 + size;
+    }
+  }catch(e){ /* ignore, fall back */ }
+  return null;
+}
+// Parse one Exif APP1 TIFF block (t = offset of the TIFF header). Returns Date or null.
+function readExifApp1(dv, t){
+  try{
+    const le = dv.getUint16(t) === 0x4949;                   // II = little endian
+    const u16 = o => dv.getUint16(o, le);
+    const u32 = o => dv.getUint32(o, le);
+    const readIfd = base => { const n = u16(base); const tags = {};
+      for (let i=0;i<n;i++){ const e = base + 2 + i*12; tags[u16(e)] = { count:u32(e+4), valOff:e+8 }; }
+      return tags; };
+    const ascii = e => { const cnt = e.count; let p = e.valOff; if (cnt > 4) p = t + u32(e.valOff);
+      let s = ""; for (let i=0;i<cnt;i++){ const c = dv.getUint8(p+i); if (c===0) break; s += String.fromCharCode(c); }
+      return s; };
+    const tags0 = readIfd(t + u32(t+4));                     // IFD0
+    let dateStr = null;
+    if (tags0[0x8769]){                                       // Exif sub-IFD
+      const sub = readIfd(t + u32(tags0[0x8769].valOff));
+      if (sub[0x9003]) dateStr = ascii(sub[0x9003]);         // DateTimeOriginal
+      else if (sub[0x9004]) dateStr = ascii(sub[0x9004]);    // DateTimeDigitized
+    }
+    if (!dateStr && tags0[0x0132]) dateStr = ascii(tags0[0x0132]); // DateTime
+    if (dateStr){
+      const m = dateStr.match(/^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})/);
+      if (m) return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]);
+    }
+  }catch(e){ /* ignore */ }
+  return null;
+}
+
+/* ------------------------------- Model ---------------------------------- */
+const PAGE_SIZES = [
+  {name:"Square 8×8",      w:8,    h:8},
+  {name:"Landscape 11×8.5",w:11,   h:8.5},
+  {name:"Portrait 8.5×11", w:8.5,  h:11},
+  {name:"Large Square 12", w:12,   h:12},
+];
+const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
+
+function newBook(title, size){
+  return {
+    id: uid(), title: title || "Untitled book",
+    pageSize: {name:size.name, w:size.w, h:size.h},
+    margin: 0.4, gap: 0.12,
+    defaults: { layout:"below", showDate:true, density:"balanced" },
+    timeline: [],
+    created: Date.now(), updated: Date.now(),
+  };
+}
+
+// Caption + date placement is one global mode: 'below' or 'in' (overlaid on the photo).
+function placement(book){ return (book.defaults && book.defaults.layout) || "below"; }
+function photoDate(ph){ return ph.dateOverride ? new Date(ph.dateOverride) : (ph.date ? new Date(ph.date) : new Date(0)); }
+// Serialize wall-clock LOCAL components (no 'Z'); avoids UTC day-shifting evening photos.
+function toLocalISO(d){ const p=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; }
+// yyyy-mm-dd for <input type=date>, derived from the SAME local date the caption shows
+// (so the input and the printed caption can never disagree, even for legacy UTC-stored dates).
+function dateInputValue(ph){ const d = photoDate(ph); if (isNaN(d)) return "";
+  const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+function sortKey(t){ return t.type==="photo" ? +photoDate(t) : (t.sortDate||0); }
+function fmtDate(d){
+  if (!(d instanceof Date) || isNaN(d)) return "";
+  return d.toLocaleDateString(undefined,{year:"numeric",month:"long",day:"numeric"});
+}
+
+/* ---------------------- Canonical order & segments ---------------------- */
+// Photos order chronologically by date; titles & breaks hold position via sortDate.
+function orderedStream(book){
+  return book.timeline.slice().sort((a,b)=> sortKey(a)-sortKey(b));
+}
+// Split the stream into page-break segments at each break ('sep').
+// Each segment is an ordered list of elements (photos and titles).
+function buildSegments(book){
+  const segs = []; let cur = [];
+  for (const t of orderedStream(book)){
+    if (t.type === "sep"){ if (cur.length) segs.push(cur); cur = []; }
+    else cur.push(t);   // photo or title
+  }
+  if (cur.length) segs.push(cur);
+  return segs;
+}
+
+/* --------------------------- Layout engine ------------------------------ */
+const ENGINE = {
+  maxPerPage: 8,
+  minPhotoH: 0.85,     // inches; avoid tiny photos when >1 on page
+  maxRowRatio: 2.6,    // max(rowH)/min(rowH) within a page
+  lambdaVar: 0.7,      // weight on row-height variation
+  rowGapFactor: 1.0,   // row gap = gap * factor
+};
+// Density presets. pageCost is the Knuth-Plass per-page penalty (the DP only spends a
+// new page when it buys that much whitespace reduction); maxPerPage and minPhotoH bound
+// how small/crowded a page may get. Together these make the three levels visibly distinct.
+const DENSITY = {
+  airy:     { pageCost: 0.0,  maxPerPage: 6,  minPhotoH: 1.3 },
+  balanced: { pageCost: 0.18, maxPerPage: 8,  minPhotoH: 0.85 },
+  dense:    { pageCost: 0.5,  maxPerPage: 10, minPhotoH: 0.55 },
+};
+function densityCfg(book){ return DENSITY[(book.defaults && book.defaults.density) || "balanced"] || DENSITY.balanced; }
+
+// Two consecutive photos are a "kept-together set" pair when the later one is linked to it.
+// A run of linked photos must not be split across a page boundary (heavy DP penalty).
+const SET_SPLIT_PEN = 100;
+function linkedPair(a, b){ return !!(a && b && a.type==="photo" && b.type==="photo" && b.linkPrev); }
+
+// aspect = width/height
+function aspect(ph){ return (ph.w>0 && ph.h>0) ? ph.w/ph.h : 1; }
+
+const TITLE_H = 0.55;   // inches reserved for a full-width title band
+const CAP_H   = 0.30;   // inches reserved for a caption band under a photo row
+const TEXT_FS = 0.15;   // body text-block font size (inches)
+// Full-width, flow-interrupting elements (titles and text blocks)
+const isBlock = el => el && (el.type === "title" || el.type === "text");
+// Reserve height for a body text block, estimated from wrapped line count.
+function textBlockHeight(text, W){
+  const fs = TEXT_FS, pad = 0.08, lineH = fs*1.45, avgChar = fs*0.52;
+  const cpl = Math.max(1, Math.floor((W - 2*pad) / avgChar));
+  let lines = 0;
+  for (const para of String(text||"").split("\n")) lines += Math.max(1, Math.ceil(para.length / cpl));
+  return Math.max(lineH, Math.min(lines, 40) * lineH) + 2*pad;
+}
+const blockHeight = (el, W) => el.type === "title" ? TITLE_H : textBlockHeight(el.text, W);
+
+// Lay an ordered list of elements (photos and titles) onto a W×H content box.
+// Titles are full-width fixed-height bands; runs of photos pack into justified rows.
+// Within a photo-run order is free (we also try an aspect-sorted ordering).
+// Returns {boxes, badness} where each box has type 'photo' or 'title'.
+function layoutPage(elements, W, H, book){
+  const cfg = densityCfg(book);
+  const gap = book.gap, rowGap = gap * ENGINE.rowGapFactor;
+  const below = placement(book) === "below";
+  const belowBand = ph => below && ((ph.caption||"").trim().length>0 || book.defaults.showDate);
+
+  // split page into runs: photo-runs (row-broken) and standalone blocks (titles/text), in order
+  const runs = []; let buf = [];
+  const flushBuf = () => { if (buf.length){ runs.push({photos:buf}); buf=[]; } };
+  for (const el of elements){
+    if (isBlock(el)){ flushBuf(); runs.push({block:el}); }
+    else if (el.type === "linebreak"){ flushBuf(); }       // forces a new row, no visual element
+    else buf.push(el);
+  }
+  flushBuf();
+
+  // candidate row-sets per run (a block has one trivial full-width candidate)
+  const runCands = runs.map(run => {
+    if (run.block) return [[{ block:run.block, rowH:blockHeight(run.block, W), band:0 }]];
+    // Photos keep chronological reading order within the page; we only choose row breaks.
+    const order = run.photos;
+    const cands = [];
+    for (const comp of compositions(order.length, cfg.maxPerPage)){
+      const rows = []; let idx = 0;
+      for (const m of comp){
+        const rp = order.slice(idx, idx+m); idx += m;
+        const sumA = rp.reduce((s,p)=>s+aspect(p),0);
+        rows.push({ rowPhotos:rp, rowH:(W - gap*(m-1))/sumA, band: rp.some(belowBand)?CAP_H:0, sumA, m });
+      }
+      cands.push(rows);
+    }
+    return cands;
+  });
+
+  // cartesian product across runs, scaled jointly to the page height
+  const totalPhotos = elements.reduce((s,e)=> s + (e.type==="photo"?1:0), 0);
+  let best = null;
+  (function combine(ri, acc){
+    if (ri === runCands.length){
+      const cand = evalRowset([].concat(...acc), W, H, gap, rowGap, cfg.minPhotoH, totalPhotos);
+      if (cand && (!best || cand.badness < best.badness)) best = cand;
+      return;
+    }
+    for (const c of runCands[ri]){ acc.push(c); combine(ri+1, acc); acc.pop(); }
+  })(0, []);
+  return best;
+}
+
+// all compositions of n (ordered partitions) with each part <= cap
+function compositions(n, cap){
+  const out = [];
+  (function rec(rem, acc){
+    if (rem === 0){ out.push(acc.slice()); return; }
+    for (let k=1; k<=Math.min(cap, rem); k++){ acc.push(k); rec(rem-k, acc); acc.pop(); }
+  })(n, []);
+  return out;
+}
+
+// Evaluate a concrete row-set (mix of photo rows and title rows) on a W×H box.
+function evalRowset(rows, W, H, gap, rowGap, minPhotoH, totalPhotos){
+  const R = rows.length;
+  const naturalH = rows.reduce((s,r)=>s+r.rowH+r.band,0) + rowGap*Math.max(0,R-1);
+  const scale = naturalH > H ? H/naturalH : 1;
+
+  // row-height variation measured over photo rows only (blocks excluded)
+  const ph = rows.filter(r=>!r.block);
+  let cov = 0, ratio = 1, minImgH = Infinity;
+  if (ph.length){
+    const hs = ph.map(r=>r.rowH*scale);
+    const mean = hs.reduce((a,b)=>a+b,0)/hs.length;
+    const variance = hs.reduce((a,b)=>a+(b-mean)*(b-mean),0)/hs.length;
+    cov = mean>0 ? Math.sqrt(variance)/mean : 0;
+    minImgH = Math.min(...hs); ratio = Math.max(...hs)/Math.max(1e-6, minImgH);
+  }
+  if (totalPhotos>1 && minImgH < minPhotoH) return null;     // avoid tiny photos
+  if (ratio > ENGINE.maxRowRatio) return null;               // avoid extreme variation
+
+  const whitespace = scale<1 ? (1-scale) : (H-naturalH)/H;
+  const badness = whitespace + ENGINE.lambdaVar*cov;
+
+  // Position boxes (inches). Rows, bands and gaps scale uniformly when overflowing and
+  // each row centers horizontally. Distribute leftover vertical slack as equal gaps —
+  // but a title that LEADS the page hugs the top (a heading shouldn't float to center).
+  const s = scale;
+  const xoff = (W - W*s)/2;                               // 0 when s>=1
+  const gp = gap*s, rg = rowGap*s;
+  const tight = rows.reduce((a,r)=>a + r.rowH*s + r.band*s, 0) + rg*Math.max(0,R-1);  // == naturalH*s
+  const slack = Math.max(0, H - tight);
+  const blockLed = R>0 && !!rows[0].block;       // a leading title/text hugs the top
+  const topGap  = blockLed ? 0 : (R>0 ? slack/(R+1) : 0);
+  const gapExtra = R>0 ? (blockLed ? slack/R : slack/(R+1)) : 0;
+  const boxes = [];
+  let y = topGap;
+  rows.forEach((r, idx) => {
+    const rh = r.rowH*s, bd = r.band*s;
+    if (r.block){
+      boxes.push({type:r.block.type, block:r.block, x:xoff, y, w:W*s, h:rh});
+    } else {
+      let x = xoff;
+      for (const p of r.rowPhotos){
+        const pw = aspect(p)*rh;
+        boxes.push({type:"photo", photo:p, x, y, w:pw, h:rh});
+        if (bd>0) boxes.push({type:"caption", photo:p, x, y:y+rh+0.02*s, w:pw, h:Math.max(0,bd-0.02*s)});
+        x += pw + gp;
+      }
+    }
+    y += rh + bd + (idx<R-1 ? rg : 0) + gapExtra;
+  });
+  return {boxes, badness, naturalH, scale};
+}
+
+// Paginate one segment (ordered photos + titles) with DP. Returns array of pages.
+function paginateSegment(elements, book){
+  const n = elements.length;
+  const Wc = book.pageSize.w - 2*book.margin;
+  const Hc = book.pageSize.h - 2*book.margin;
+  const cfg = densityCfg(book);
+  const pageCostC = cfg.pageCost;        // compactness penalty per page
+  const maxPP = cfg.maxPerPage;
+
+  // prefix count of photos, to bound page size by PHOTOS (titles/text/linebreaks don't count)
+  const pre = [0];
+  for (let t=0;t<n;t++) pre.push(pre[t] + (elements[t].type==="photo"?1:0));
+  const photosIn = (i,j) => pre[j]-pre[i];
+
+  const memo = {};
+  const pageCost = (i,j) => {
+    const key = i+"_"+j;
+    if (memo[key]) return memo[key];
+    let res;
+    if (photosIn(i,j) > maxPP) res = {cost:Infinity, layout:null};
+    else if (isBlock(elements[j-1]) && j<n) res = {cost:Infinity, layout:null}; // don't orphan a title/text block
+    else { const L = layoutPage(elements.slice(i,j), Wc, Hc, book);
+           res = L ? {cost:L.badness, layout:L} : {cost:Infinity, layout:null}; }
+    memo[key] = res; return res;
+  };
+
+  const best = new Array(n+1).fill(Infinity);
+  const from = new Array(n+1).fill(-1);
+  best[0] = 0;
+  for (let j=1;j<=n;j++){
+    // penalty for ending a page here when it would split a kept-together set
+    const splitPen = (j<n && linkedPair(elements[j-1], elements[j])) ? SET_SPLIT_PEN : 0;
+    for (let k=1;k<=j;k++){
+      const i = j-k;
+      if (photosIn(i,j) > maxPP) break;             // slice only grows leftward -> stop
+      const pc = pageCost(i,j).cost + pageCostC + splitPen;
+      if (best[i] + pc < best[j]){ best[j] = best[i]+pc; from[j] = i; }
+    }
+  }
+  const cuts = [];
+  let j = n;
+  if (best[n] === Infinity){                         // safety fallback
+    let i=0; while(i<n){ const e=Math.min(i+maxPP,n); cuts.unshift([i,e]); i=e; }
+  } else {
+    while (j>0){ const i = from[j]; cuts.unshift([i,j]); j = i; }
+  }
+  return cuts.map(([i,jj]) => {
+    const pc = pageCost(i,jj);
+    return { boxes: pc.layout ? pc.layout.boxes : [], W:Wc, H:Hc, margin:book.margin };
+  });
+}
+
+function layoutBook(book){
+  const segs = buildSegments(book);
+  let pages = [];
+  for (const seg of segs) pages = pages.concat(paginateSegment(seg, book));
+  return pages;
+}
+
+/* ------------------------------- App state ------------------------------ */
+const state = { view:"library", books:[], book:null, urls:{} };
+const root = document.getElementById("root");
+
+/* -------- Routing: the ?book=<id> query param is the source of truth ----- */
+function setRoute(id){
+  const u = new URL(location.href);
+  if (id) u.searchParams.set("book", id); else u.searchParams.delete("book");
+  history.pushState({book:id||null}, "", u);
+}
+async function reloadBooks(){
+  try{ state.books = await DB.allBooks(); }catch(e){ state.books = []; }
+  state.books.sort((a,b)=> (b.updated||0)-(a.updated||0));
+}
+async function goLibrary(push=true){ if (push) setRoute(null); await reloadBooks(); renderLibrary(); }
+window.addEventListener("popstate", async () => {
+  if (state.book) await saveNow();                      // flush edits before leaving
+  const id = new URL(location.href).searchParams.get("book");
+  if (id) await openBook(id, false); else { await reloadBooks(); renderLibrary(); }
+});
+
+async function ensureUrls(book){
+  for (const t of book.timeline){
+    if (t.type==="photo" && !state.urls[t.id]){
+      const blob = await DB.getBlob(t.blobId);
+      if (blob) state.urls[t.id] = URL.createObjectURL(blob);
+    }
+  }
+}
+function revokeUrls(){ for (const k in state.urls){ URL.revokeObjectURL(state.urls[k]); } state.urls = {}; }
+
+let saveTimer = null;
+function saveSoon(){
+  if (!state.book) return;
+  state.book.updated = Date.now();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{ DB.putBook(strip(state.book)); }, 400);
+}
+function saveNow(){ if (state.book){ state.book.updated=Date.now(); return DB.putBook(strip(state.book)); } }
+// strip non-persistent fields (none currently, but keep a clean clone)
+function strip(book){ return JSON.parse(JSON.stringify(book)); }
+
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("show"), 1600);
+}
+
+/* --------------------------------- Render: Library ---------------------- */
+function renderLibrary(){
+  revokeUrls();
+  state.view = "library"; state.book = null;
+  document.getElementById("print-page-size").textContent = "@page{size:8in 8in;margin:0}";
+  const grid = state.books.length ? state.books.map(bookCard).join("") :
+    `<div class="empty">No books yet. Create your first photo book.</div>`;
+  root.innerHTML = `
+    <div id="library" class="app-chrome">
+      <div class="lib-head">
+        <h1>📚 Photobook</h1>
+        <button class="primary" id="newBookBtn">+ New book</button>
+      </div>
+      <div class="lib-grid">${grid}</div>
+    </div>`;
+  document.getElementById("newBookBtn").onclick = openNewBookModal;
+  state.books.forEach(b=>{
+    const card = root.querySelector(`[data-book="${b.id}"]`);
+    if (!card) return;
+    card.querySelector(".open").onclick = () => openBook(b.id);
+    card.querySelector(".book-cover").onclick = () => openBook(b.id);
+    card.querySelector(".del").onclick = (e) => { e.stopPropagation(); deleteBook(b.id); };
+    // cover thumb
+    const first = b.timeline.find(t=>t.type==="photo");
+    if (first){
+      DB.getBlob(first.blobId).then(blob=>{
+        if (blob){ const u=URL.createObjectURL(blob);
+          card.querySelector(".book-cover").style.backgroundImage = `url(${u})`;
+          card.querySelector(".book-cover").textContent = ""; }
+      });
+    }
+  });
+}
+function bookCard(b){
+  const count = b.timeline.filter(t=>t.type==="photo").length;
+  return `<div class="book-card" data-book="${b.id}">
+    <div class="book-cover">🖼️</div>
+    <div class="book-meta">
+      <div class="t">${esc(b.title)}</div>
+      <div class="s">${esc(b.pageSize.name)} · ${count} photo${count===1?"":"s"}</div>
+    </div>
+    <div class="row">
+      <button class="open primary" style="flex:1">Open</button>
+      <button class="del danger">Delete</button>
+    </div>
+  </div>`;
+}
+
+/* ------------------------------- New book modal ------------------------- */
+function openNewBookModal(){
+  let sizeIdx = 0;
+  const wrap = document.createElement("div");
+  wrap.className = "modal-bg";
+  wrap.innerHTML = `
+    <div class="modal">
+      <h2>New photo book</h2>
+      <div class="field">
+        <label>Title</label>
+        <input id="nbTitle" placeholder="e.g. Summer 2025" value="">
+      </div>
+      <div class="field">
+        <label>Page size</label>
+        <div class="size-grid">
+          ${PAGE_SIZES.map((s,i)=>`<div class="size-opt ${i===0?'on':''}" data-i="${i}">
+             <div class="nm">${esc(s.name.split(" ")[0])}</div>
+             <div class="dm">${s.w}″ × ${s.h}″</div></div>`).join("")}
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="nbCancel">Cancel</button>
+        <button class="primary" id="nbCreate">Create</button>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  wrap.querySelectorAll(".size-opt").forEach(el=>{
+    el.onclick = () => { sizeIdx = +el.dataset.i;
+      wrap.querySelectorAll(".size-opt").forEach(o=>o.classList.remove("on")); el.classList.add("on"); };
+  });
+  const close = () => wrap.remove();
+  wrap.querySelector("#nbCancel").onclick = close;
+  wrap.onclick = e => { if (e.target===wrap) close(); };
+  wrap.querySelector("#nbCreate").onclick = async () => {
+    const title = wrap.querySelector("#nbTitle").value.trim() || "Untitled book";
+    const b = newBook(title, PAGE_SIZES[sizeIdx]);
+    await DB.putBook(strip(b));
+    state.books.push(b);
+    close();
+    openBook(b.id);
+  };
+  wrap.querySelector("#nbTitle").focus();
+}
+
+async function deleteBook(id){
+  if (!confirm("Delete this book and all its photos? This cannot be undone.")) return;
+  const b = state.books.find(x=>x.id===id) || await DB.getBook(id);
+  if (b) for (const t of b.timeline) if (t.type==="photo") await DB.delBlob(t.blobId);
+  await DB.delBook(id);
+  state.books = state.books.filter(x=>x.id!==id);
+  renderLibrary();
+}
+
+/* --------------------------------- Editor ------------------------------- */
+async function openBook(id, push=true){
+  const b = await DB.getBook(id);
+  if (!b){ goLibrary(false); return; }
+  if (push) setRoute(id);
+  state.book = b; state.view = "editor";
+  const optimized = await optimizeBook(b);          // shrink oversized images (older books)
+  if (optimized) await DB.putBook(strip(b));
+  await ensureUrls(b);
+  renderEditor();
+  if (optimized) toast(`Optimized ${optimized} image${optimized===1?"":"s"} for print`);
+}
+
+function renderEditor(){
+  const b = state.book;
+  setPrintSize(b);
+  root.innerHTML = `
+    <div id="editor">
+      <div class="toolbar app-chrome">
+        <button id="backBtn" class="ghost">← Library</button>
+        <input class="title-in" id="bookTitle" value="${esc(b.title)}">
+        <select id="pageSizeSel" style="width:auto">
+          ${PAGE_SIZES.map(s=>`<option ${s.name===b.pageSize.name?"selected":""}>${esc(s.name)}</option>`).join("")}
+        </select>
+        <button id="addPhotosBtn" class="primary">+ Add photos</button>
+        <input type="file" id="fileInput" accept="image/jpeg,image/png" multiple class="hidden">
+        <div class="sp"></div>
+        <label style="display:flex;gap:6px;align-items:center">Captions &amp; dates
+          <select id="layoutSel" style="width:auto">
+            <option value="below" ${placement(b)==="below"?"selected":""}>Below photo</option>
+            <option value="in" ${placement(b)==="in"?"selected":""}>In photo</option>
+          </select></label>
+        <label style="display:flex;gap:5px;align-items:center"><input type="checkbox" id="showDate" style="width:auto" ${b.defaults.showDate?"checked":""}>Show dates</label>
+        <label style="display:flex;gap:6px;align-items:center">Density
+          <select id="density" style="width:auto">
+            <option value="airy" ${b.defaults.density==="airy"?"selected":""}>Airy</option>
+            <option value="balanced" ${(b.defaults.density||"balanced")==="balanced"?"selected":""}>Balanced</option>
+            <option value="dense" ${b.defaults.density==="dense"?"selected":""}>Dense</option>
+          </select></label>
+        <button id="printBtn">🖨️ Print / PDF</button>
+      </div>
+      <div class="editor-body">
+        <div class="sidebar app-chrome">
+          <div class="sidebar-head">
+            <strong>Timeline</strong><div class="sp"></div>
+            <span class="hint-text">hover between rows to add titles, text &amp; breaks</span>
+          </div>
+          <div class="tl" id="timeline"></div>
+        </div>
+        <div class="pages-area" id="pagesArea"></div>
+      </div>
+    </div>`;
+
+  document.getElementById("backBtn").onclick = async () => { await saveNow(); goLibrary(); };
+  document.getElementById("bookTitle").oninput = e => {
+    b.title = e.target.value; const bk = state.books.find(x=>x.id===b.id); if (bk) bk.title=b.title; saveSoon();
+  };
+  document.getElementById("pageSizeSel").onchange = e => {
+    const s = PAGE_SIZES.find(x=>x.name===e.target.value);
+    b.pageSize = {name:s.name,w:s.w,h:s.h}; setPrintSize(b); saveSoon(); renderPages();
+  };
+  document.getElementById("addPhotosBtn").onclick = () => document.getElementById("fileInput").click();
+  document.getElementById("fileInput").onchange = e => addPhotos(e.target.files);
+  document.getElementById("layoutSel").onchange = e => { b.defaults.layout=e.target.value; saveSoon(); renderPages(); };
+  document.getElementById("showDate").onchange = e => { b.defaults.showDate=e.target.checked; saveSoon(); renderPages(); };
+  document.getElementById("density").onchange = e => { b.defaults.density=e.target.value; saveSoon(); renderPages(); };
+  document.getElementById("printBtn").onclick = () => window.print();
+
+  // drag-and-drop image files anywhere onto the sidebar to add them
+  const sidebar = root.querySelector(".sidebar");
+  sidebar.addEventListener("dragover", e => { if (!isFileDrag(e)) return; e.preventDefault(); sidebar.classList.add("filedrop"); });
+  sidebar.addEventListener("dragleave", e => { if (e.target === sidebar) sidebar.classList.remove("filedrop"); });
+  sidebar.addEventListener("drop", e => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault(); sidebar.classList.remove("filedrop");
+    if (e.dataTransfer.files && e.dataTransfer.files.length) addPhotos(e.dataTransfer.files);
+  });
+
+  renderTimeline();
+  renderPages();
+}
+const isFileDrag = e => Array.from((e.dataTransfer && e.dataTransfer.types) || []).includes("Files");
+
+function refresh(){ renderTimeline(); renderPages(); }
+
+/* ------------------------------ Add photos ------------------------------ */
+async function addPhotos(fileList){
+  let files = Array.from(fileList||[]).filter(f => /^image\//.test(f.type) || /\.(jpe?g|png)$/i.test(f.name));
+  if (!files.length) return;
+  toast(`Adding ${files.length} photo${files.length===1?"":"s"}…`);
+  let noDate = 0, dup = 0;
+  // hashes already in this book -> skip identical re-uploads / repeats
+  const seen = new Set(state.book.timeline.filter(t=>t.type==="photo" && t.hash).map(t=>t.hash));
+  for (const file of files){
+    try{
+      const buf = await file.arrayBuffer();
+      const hash = await contentHash(buf);
+      if (seen.has(hash)){ dup++; continue; }                // duplicate of an existing/already-added photo
+      seen.add(hash);
+      const exif = parseExifDate(buf);                       // EXIF capture date, if any
+      const date = exif || new Date(file.lastModified || Date.now());  // else fall back to file date
+      if (!exif) noDate++;
+      const ds = await downscaleBlob(file, MAX_DIM, JPEG_Q); // print-optimized version
+      const blobId = uid();
+      await DB.putBlob(blobId, ds.blob);
+      const ph = {
+        type:"photo", id:uid(), blobId, w:ds.w, h:ds.h,
+        date: toLocalISO(date), dateOverride:null, caption:"",
+        noExif: !exif, hash,                                 // hash => dedup key (on original bytes); noExif => date is a guess
+      };
+      state.book.timeline.push(ph);
+      state.urls[ph.id] = URL.createObjectURL(ds.blob);
+    }catch(err){ console.error("add photo failed", err); }
+  }
+  await saveNow();
+  refresh();
+  const added = files.length - dup;
+  const notes = [];
+  if (dup)    notes.push(`${dup} duplicate${dup===1?"":"s"} skipped`);
+  if (noDate) notes.push(`${noDate} had no date — set in the timeline`);
+  toast(`Added ${added} photo${added===1?"":"s"}` + (notes.length ? ` (${notes.join("; ")})` : ""));
+}
+// Print-optimized image size: a book page at 300 DPI rarely needs more than ~2200px,
+// so downscale + JPEG-recompress on import to keep the printed PDF small.
+const MAX_DIM = 2200, JPEG_Q = 0.85;
+// Returns {blob, w, h}: downscaled+recompressed if larger than maxDim, else the original.
+function downscaleBlob(blob, maxDim, quality){
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const scale = Math.min(1, maxDim / Math.max(w, h));
+      if (scale >= 1){ URL.revokeObjectURL(url); resolve({blob, w, h}); return; }  // already small enough
+      const cw = Math.max(1, Math.round(w*scale)), ch = Math.max(1, Math.round(h*scale));
+      const c = document.createElement("canvas"); c.width = cw; c.height = ch;
+      c.getContext("2d").drawImage(img, 0, 0, cw, ch);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => resolve({blob: b || blob, w: cw, h: ch}), "image/jpeg", quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve({blob, w:1, h:1}); };
+    img.src = url;
+  });
+}
+// Shrink any oversized images already stored in a book (one-time migration for older books).
+async function optimizeBook(book){
+  const big = book.timeline.filter(t => t.type==="photo" && Math.max(t.w||0, t.h||0) > MAX_DIM);
+  if (!big.length) return 0;
+  toast(`Optimizing ${big.length} image${big.length===1?"":"s"} for print…`);
+  let n = 0;
+  for (const t of big){
+    const blob = await DB.getBlob(t.blobId);
+    if (!blob) continue;
+    const ds = await downscaleBlob(blob, MAX_DIM, JPEG_Q);
+    if (ds.blob !== blob && ds.w){
+      await DB.putBlob(t.blobId, ds.blob);
+      t.w = ds.w; t.h = ds.h; n++;
+      if (state.urls[t.id]){ URL.revokeObjectURL(state.urls[t.id]); delete state.urls[t.id]; }
+    }
+  }
+  return n;
+}
+// Content fingerprint for duplicate detection: SHA-256 of the bytes when available
+// (secure contexts: https / localhost / file), else a fast FNV-1a + length fallback.
+async function contentHash(buf){
+  try{
+    if (self.crypto && crypto.subtle){
+      const h = await crypto.subtle.digest("SHA-256", buf);
+      return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join("");
+    }
+  }catch(e){ /* fall through */ }
+  const bytes = new Uint8Array(buf);
+  let h = 0x811c9dc5;
+  for (let i=0;i<bytes.length;i++){ h ^= bytes[i]; h = Math.imul(h, 0x01000193); }
+  return (h>>>0).toString(16) + ":" + bytes.length;
+}
+
+/* --------------------------- Render: timeline --------------------------- */
+function renderTimeline(){
+  const b = state.book;
+  const tl = document.getElementById("timeline");
+  const stream = orderedStream(b);
+  if (!stream.length){ tl.innerHTML = `<div class="empty">Add photos to begin.</div>`; }
+  else {
+    const parts = []; let prev = null;
+    stream.forEach((t, i) => {
+      // insert point in the gap BEFORE this row (between the previous row and this one)
+      const prevK = (i>0) ? sortKey(stream[i-1]) : null;
+      const thisK = sortKey(t);
+      parts.push(gapRow(prevK==null ? thisK-60000 : (prevK+thisK)/2));
+      parts.push(t.type==="sep"       ? sepRow(t) :
+                 t.type==="linebreak" ? lineBreakRow(t) :
+                 t.type==="title"     ? titleRow(t) :
+                 t.type==="text"      ? textRow(t) :
+                 photoRow(t, b, !!prev && prev.type==="photo"));
+      prev = t;
+    });
+    parts.push(gapRow(sortKey(stream[stream.length-1]) + 60000));   // trailing insert point
+    tl.innerHTML = parts.join("");
+  }
+  wireTimeline();
+}
+// a between-rows insert point offering every element type at sortDate `sd`
+function gapRow(sd){
+  return `<div class="tl-gap"><span class="hint">＋</span><span class="gbtns">
+    <button data-gapt="${sd}">Title</button><button data-gapx="${sd}">Text</button>
+    <button data-gapl="${sd}">Line&nbsp;break</button><button data-gapb="${sd}">Page&nbsp;break</button></span></div>`;
+}
+function sepRow(t){
+  return `<div class="tl-sep" data-sepid="${t.id}">
+    <span class="ln"></span>⎯ page break ⎯<span class="ln"></span>
+    <button class="ghost" data-delmarker="${t.id}" title="Remove page break">✕</button>
+  </div>`;
+}
+function lineBreakRow(t){
+  return `<div class="tl-sep tl-linebreak" data-lbid="${t.id}">
+    <span class="ln"></span>↵ line break (new row)<span class="ln"></span>
+    <button class="ghost" data-delmarker="${t.id}" title="Remove line break">✕</button>
+  </div>`;
+}
+function titleRow(t){
+  return `<div class="tl-title" data-titleid="${t.id}">
+    <span class="tg">T</span>
+    <input data-blocktext="${t.id}" placeholder="Title…" value="${esc(t.text||"")}">
+    <button class="ghost" data-delmarker="${t.id}" title="Remove title">✕</button>
+  </div>`;
+}
+function textRow(t){
+  return `<div class="tl-text" data-textid="${t.id}">
+    <span class="tg tg-text">¶</span>
+    <textarea data-blocktext="${t.id}" placeholder="Body text…">${esc(t.text||"")}</textarea>
+    <button class="ghost" data-delmarker="${t.id}" title="Remove text">✕</button>
+  </div>`;
+}
+function photoRow(ph, b, canLink){
+  const url = state.urls[ph.id] || "";
+  const dval = dateInputValue(ph);
+  const linked = canLink && ph.linkPrev;
+  const undated = ph.noExif && !ph.dateOverride;            // no real date yet
+  return `<div class="tl-item ${linked?'linked':''}" data-id="${ph.id}">
+    <div class="tl-thumb" draggable="true" data-drag="${ph.id}" style="background-image:url(${url})"></div>
+    <div class="tl-main">
+      <div class="tl-date ${undated?'nodate':''}">📅 <input type="date" data-date="${ph.id}" value="${dval}">${undated?`<span class="warn" title="No date is stored in this file. It was placed using the file's date — set the correct date here.">⚠ no date in file</span>`:''}</div>
+      <textarea data-cap="${ph.id}" placeholder="Caption…">${esc(ph.caption||"")}</textarea>
+      <div class="tl-actions">
+        ${canLink?`<button class="tl-link ${linked?'on':''}" data-link="${ph.id}" title="Keep on the same page as the previous photo">${linked?'🔗 kept w/ prev':'🔗 keep w/ prev'}</button>`:""}
+        <button data-del="${ph.id}" class="danger">Delete</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function wireTimeline(){
+  const tl = document.getElementById("timeline");
+  tl.querySelectorAll("[data-cap]").forEach(t=>{
+    t.oninput = e => { findItem(t.dataset.cap).caption = e.target.value; saveSoon(); renderPages(); };
+  });
+  tl.querySelectorAll("[data-date]").forEach(t=>{
+    t.onchange = e => { const p=findItem(t.dataset.date);
+      p.dateOverride = e.target.value ? e.target.value+"T12:00:00" : null;
+      saveSoon(); refresh(); };
+  });
+  tl.querySelectorAll("[data-blocktext]").forEach(inp=>{   // titles and text blocks both edit .text
+    inp.oninput = e => { const t=findItem(inp.dataset.blocktext); if(t){ t.text=e.target.value; saveSoon(); renderPages(); } };
+  });
+  tl.querySelectorAll("[data-link]").forEach(btn=>{
+    btn.onclick = () => { const p=findItem(btn.dataset.link); if(p){ p.linkPrev=!p.linkPrev; saveSoon(); refresh(); } };
+  });
+  tl.querySelectorAll("[data-del]").forEach(btn=> btn.onclick = () => deletePhoto(btn.dataset.del));
+  tl.querySelectorAll("[data-delmarker]").forEach(btn=> btn.onclick = () => deleteMarker(btn.dataset.delmarker));
+  tl.querySelectorAll("[data-gapt]").forEach(btn=> btn.onclick = () => insertTitleAt(parseFloat(btn.dataset.gapt)));
+  tl.querySelectorAll("[data-gapx]").forEach(btn=> btn.onclick = () => insertTextAt(parseFloat(btn.dataset.gapx)));
+  tl.querySelectorAll("[data-gapl]").forEach(btn=> btn.onclick = () => insertLineBreakAt(parseFloat(btn.dataset.gapl)));
+  tl.querySelectorAll("[data-gapb]").forEach(btn=> btn.onclick = () => insertBreakAt(parseFloat(btn.dataset.gapb)));
+  // drag a photo onto another to reorder it (adjusts its date)
+  tl.querySelectorAll("[data-drag]").forEach(th=>{
+    const item = th.closest(".tl-item");
+    item.addEventListener("dragstart", e=>{ e.dataTransfer.setData("text/id", th.dataset.drag); });
+    item.addEventListener("dragover", e=>{ if (isFileDrag(e)) return; e.preventDefault(); item.classList.add("dragover"); });
+    item.addEventListener("dragleave", ()=> item.classList.remove("dragover"));
+    item.addEventListener("drop", e=>{
+      if (isFileDrag(e)) return;                  // let file drops bubble to the sidebar handler
+      e.preventDefault(); item.classList.remove("dragover");
+      reorderOnto(e.dataTransfer.getData("text/id"), item.dataset.id);
+    });
+  });
+}
+
+function findItem(id){ return state.book.timeline.find(t=>t.id===id); }
+
+function deletePhoto(id){
+  const b = state.book;
+  const p = findItem(id);
+  if (p){ DB.delBlob(p.blobId); if (state.urls[id]){ URL.revokeObjectURL(state.urls[id]); delete state.urls[id]; } }
+  b.timeline = b.timeline.filter(t=>t.id!==id);
+  saveSoon(); refresh();
+}
+function deleteMarker(id){
+  state.book.timeline = state.book.timeline.filter(t=>t.id!==id);
+  saveSoon(); refresh();
+}
+
+// markers (titles / text / breaks) hold a chronological position via their sortDate.
+function insertBreakAt(pos){
+  state.book.timeline.push({type:"sep", id:uid(), sortDate: pos});
+  saveSoon(); refresh(); toast("Page break added");
+}
+function insertLineBreakAt(pos){
+  state.book.timeline.push({type:"linebreak", id:uid(), sortDate: pos});
+  saveSoon(); refresh(); toast("Line break added");
+}
+function insertTitleAt(pos){
+  state.book.timeline.push({type:"title", id:uid(), text:"", sortDate: pos});
+  saveSoon(); refresh(); toast("Title added");
+}
+function insertTextAt(pos){
+  state.book.timeline.push({type:"text", id:uid(), text:"", sortDate: pos});
+  saveSoon(); refresh(); toast("Text block added");
+}
+
+/* --------------------- Reorder via date adjustment ---------------------- */
+// Dropping A onto B places A just before B's time, so chronological order updates.
+function reorderOnto(dragId, targetId){
+  if (dragId===targetId) return;
+  const drag = findItem(dragId), target = findItem(targetId);
+  if (!drag || !target || drag.type!=="photo" || target.type!=="photo") return;
+  drag.dateOverride = toLocalISO(new Date(+photoDate(target) - 1));
+  saveSoon(); refresh();
+}
+
+/* --------------------------- Render: pages ------------------------------ */
+function setPrintSize(b){
+  document.getElementById("print-page-size").textContent =
+    `@page{size:${b.pageSize.w}in ${b.pageSize.h}in;margin:0}`;
+}
+
+function renderPages(){
+  const b = state.book;
+  const area = document.getElementById("pagesArea");
+  if (!area) return;
+  const pages = layoutBook(b);
+  if (!pages.length){ area.innerHTML = `<div class="empty">Your book is empty.<br>Add photos to see pages.</div>`; return; }
+
+  // preview zoom: fit page width to the available area
+  const avail = area.clientWidth - 56;
+  const pagePx = b.pageSize.w * 96;          // CSS inch = 96px
+  const zoom = Math.min(1, avail / pagePx);
+
+  area.innerHTML = pages.map((pg,i)=>pageHtml(pg, b, i, zoom)).join("");
+}
+
+function pageHtml(pg, b, i, zoom){
+  const W = b.pageSize.w, H = b.pageSize.h, m = b.margin;
+  const capFs = 0.13, titleFs = 0.30;
+  const below = placement(b) === "below";
+  // text shown for a photo = optional date, then optional caption
+  const photoText = ph => {
+    const parts = [];
+    if (b.defaults.showDate){ const d = fmtDate(photoDate(ph)); if (d) parts.push(d); }
+    const c = (ph.caption||"").trim(); if (c) parts.push(c);
+    return parts.join(" — ");
+  };
+  let inner = "";
+  for (const box of pg.boxes){
+    const x = m + box.x, y = m + box.y;
+    if (box.type === "title"){
+      inner += `<div class="page-title" style="left:${x}in;top:${y}in;width:${box.w}in;height:${box.h}in;font-size:${titleFs}in">${esc(box.block.text||"")}</div>`;
+    } else if (box.type === "text"){
+      inner += `<div class="page-text" style="left:${x}in;top:${y}in;width:${box.w}in;height:${box.h}in;font-size:${TEXT_FS}in">${esc(box.block.text||"")}</div>`;
+    } else if (box.type === "photo"){
+      // in-photo mode: overlay date+caption as white text on a scrim (only if there's text)
+      let overlay = "";
+      if (!below){ const txt = photoText(box.photo);
+        if (txt) overlay = `<div class="scrim"></div><div class="in-cap" style="--capfs:${capFs}in">${esc(txt)}</div>`; }
+      inner += `<div class="ph${overlay?' clip':''}" style="left:${x}in;top:${y}in;width:${box.w}in;height:${box.h}in">
+          <img src="${state.urls[box.photo.id]||""}" alt="">${overlay}</div>`;
+    } else if (box.type === "caption" && below){
+      const txt = photoText(box.photo);
+      if (txt) inner += `<div class="cap-below" style="left:${x}in;top:${y}in;width:${box.w}in;height:${box.h}in;--capfs:${capFs}in">${esc(txt)}</div>`;
+    }
+  }
+  return `<div class="page-wrap">
+      <div class="page" style="width:${W}in;height:${H}in;zoom:${zoom}">${inner}</div>
+      <div class="page-label">Page ${i+1} · ${W}″ × ${H}″</div>
+    </div>`;
+}
+
+/* -------------------------------- Utils --------------------------------- */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+
+/* --------------------------------- Boot --------------------------------- */
+async function boot(){
+  try{ state.books = await DB.allBooks(); }
+  catch(e){ state.books = []; }
+  state.books.sort((a,b)=> (b.updated||0)-(a.updated||0));
+  const id = new URL(location.href).searchParams.get("book");   // ?book=<id> is source of truth
+  if (id && state.books.some(b=>b.id===id)){ await openBook(id, false); return; }
+  if (id){ setRoute(null); }   // stale id in URL -> clear it
+  renderLibrary();
+}
+
+// expose a tiny read-only hook for debugging the layout engine in the console
+window.__pb = { layoutBook, layoutPage, buildSegments, orderedStream, parseExifDate, densityCfg, contentHash, downscaleBlob, MAX_DIM, get book(){ return state.book; } };
+
+boot();
+</script>
+</body>
+</html>

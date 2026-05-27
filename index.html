@@ -62,6 +62,10 @@
   .tl-item.dragover{border-color:var(--accent);border-style:dashed}
   .tl-thumb{width:62px;height:62px;border-radius:6px;background:#e9ebf0 center/cover no-repeat;flex:none;
             position:relative;cursor:grab}
+  .tl-thumb.miss{border:1px dashed #d99;background:#fbeaea;display:flex;align-items:center;justify-content:center;color:#c0392b}
+  .tl-miss{font-size:10px;color:#c0392b;font-weight:600}
+  .ph-missing{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+              color:#9aa0ab;font-size:0.16in;text-align:center;padding:6%}
   .tl-sec-badge{position:absolute;left:0;bottom:0;right:0;font-size:9px;background:rgba(59,110,245,.92);
                 color:#fff;padding:1px 3px;border-bottom-left-radius:6px;border-bottom-right-radius:6px;
                 white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -553,7 +557,7 @@ window.addEventListener("popstate", async () => {
 
 async function ensureUrls(book){
   for (const t of book.timeline){
-    if (t.type==="photo" && !state.urls[t.id]){
+    if (t.type==="photo" && t.blobId && !state.urls[t.id]){    // skip missing-image placeholders
       const blob = await DB.getBlob(t.blobId);
       if (blob) state.urls[t.id] = URL.createObjectURL(blob);
     }
@@ -589,11 +593,15 @@ function renderLibrary(){
     <div id="library" class="app-chrome">
       <div class="lib-head">
         <h1>📚 Photobook</h1>
+        <input type="file" id="importInput" class="hidden" multiple accept=".json,application/json,image/jpeg,image/png">
+        <button id="importBtn" title="Import a project from an exported file + its images">⬆ Import project</button>
         <button class="primary" id="newBookBtn">+ New book</button>
       </div>
       <div class="lib-grid">${grid}</div>
     </div>`;
   document.getElementById("newBookBtn").onclick = openNewBookModal;
+  document.getElementById("importBtn").onclick = () => document.getElementById("importInput").click();
+  document.getElementById("importInput").onchange = e => importProject(e.target.files);
   state.books.forEach(b=>{
     const card = root.querySelector(`[data-book="${b.id}"]`);
     if (!card) return;
@@ -718,6 +726,7 @@ function renderEditor(){
             <option value="balanced" ${(b.defaults.density||"balanced")==="balanced"?"selected":""}>Balanced</option>
             <option value="dense" ${b.defaults.density==="dense"?"selected":""}>Dense</option>
           </select></label>
+        <button id="exportBtn" title="Export this project as a file (images referenced by filename, not embedded)">⬇ Export</button>
         <button id="printBtn">🖨️ Print / PDF</button>
       </div>
       <div class="editor-body">
@@ -745,6 +754,7 @@ function renderEditor(){
   document.getElementById("layoutSel").onchange = e => { b.defaults.layout=e.target.value; saveSoon(); renderPages(); };
   document.getElementById("showDate").onchange = e => { b.defaults.showDate=e.target.checked; saveSoon(); renderPages(); };
   document.getElementById("density").onchange = e => { b.defaults.density=e.target.value; saveSoon(); renderPages(); };
+  document.getElementById("exportBtn").onclick = () => exportBook(state.book);
   document.getElementById("printBtn").onclick = () => window.print();
 
   // drag-and-drop image files anywhere onto the sidebar to add them
@@ -785,7 +795,7 @@ async function addPhotos(fileList){
       const blobId = uid();
       await DB.putBlob(blobId, ds.blob);
       const ph = {
-        type:"photo", id:uid(), blobId, w:ds.w, h:ds.h,
+        type:"photo", id:uid(), blobId, w:ds.w, h:ds.h, filename: file.name,
         date: toLocalISO(date), dateOverride:null, caption:"",
         noExif: !exif, hash,                                 // hash => dedup key (on original bytes); noExif => date is a guess
       };
@@ -856,6 +866,86 @@ async function contentHash(buf){
   return (h>>>0).toString(16) + ":" + bytes.length;
 }
 
+/* ----------------------- Project export / import ------------------------ */
+// Export everything needed to rebuild the project EXCEPT image bytes. Photos are
+// referenced by filename (+ content hash fallback); re-import with the same images.
+function bookToExport(book){
+  return {
+    format: "photobook", version: 1, exportedAt: new Date().toISOString(),
+    book: {
+      title: book.title, pageSize: book.pageSize, margin: book.margin, gap: book.gap,
+      defaults: book.defaults,
+      timeline: book.timeline.map(t => t.type === "photo"
+        ? { type:"photo", filename:t.filename||null, hash:t.hash||null, w:t.w, h:t.h,
+            date:t.date, dateOverride:t.dateOverride||null, caption:t.caption||"",
+            noExif:!!t.noExif, linkPrev:!!t.linkPrev }                       // no blobId (local-only)
+        : { ...t }),                                                          // titles / text / sep / linebreak as-is
+    },
+  };
+}
+function exportBook(book){
+  const data = bookToExport(book);
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = (book.title || "photobook").replace(/[^\w\-]+/g, "_") + ".photobook.json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast("Project exported");
+}
+
+// Rebuild a project from an export file + the original images (matched by filename, then hash).
+async function importProject(fileList){
+  const files = Array.from(fileList || []);
+  const jsonFile = files.find(f => /\.json$/i.test(f.name) || f.type === "application/json");
+  if (!jsonFile){ alert("Select the exported .photobook.json file together with the project's images."); return; }
+  let data;
+  try { data = JSON.parse(await jsonFile.text()); }
+  catch(e){ alert("Could not read that project file (invalid JSON)."); return; }
+  if (!data || data.format !== "photobook" || !data.book){ alert("That file isn't a Photobook export."); return; }
+
+  const src = data.book;
+  const images = files.filter(f => f !== jsonFile && (/^image\//.test(f.type) || /\.(jpe?g|png)$/i.test(f.name)));
+  const byName = new Map();
+  for (const f of images) if (!byName.has(f.name)) byName.set(f.name, f);
+  let byHash = null;                                          // built lazily only if a filename misses
+
+  const book = {
+    id: uid(), title: src.title || "Imported book",
+    pageSize: src.pageSize, margin: src.margin ?? 0.4, gap: src.gap ?? 0.12,
+    defaults: src.defaults || { layout:"below", showDate:true, density:"balanced" },
+    timeline: [], created: Date.now(), updated: Date.now(),
+  };
+  const missing = [];
+  toast("Importing project…");
+  for (const t of (src.timeline || [])){
+    if (t.type !== "photo"){ book.timeline.push({ ...t, id: uid() }); continue; }
+    let file = t.filename ? byName.get(t.filename) : null;
+    if (!file && t.hash){
+      if (!byHash){ byHash = new Map(); for (const f of images){ const h = await contentHash(await f.arrayBuffer()); if (!byHash.has(h)) byHash.set(h, f); } }
+      file = byHash.get(t.hash);
+    }
+    const ph = { type:"photo", id:uid(), filename:t.filename||null, hash:t.hash||null,
+                 w:t.w, h:t.h, date:t.date, dateOverride:t.dateOverride||null,
+                 caption:t.caption||"", noExif:!!t.noExif, linkPrev:!!t.linkPrev };
+    if (file){
+      const ds = await downscaleBlob(file, MAX_DIM, JPEG_Q);
+      const blobId = uid(); await DB.putBlob(blobId, ds.blob);
+      ph.blobId = blobId; ph.w = ds.w; ph.h = ds.h;
+    } else {
+      ph.missing = true;                                      // keep slot (stored w/h) as a placeholder
+      missing.push(t.filename || ("hash:"+(t.hash||"").slice(0,8)));
+    }
+    book.timeline.push(ph);
+  }
+  await DB.putBook(strip(book));
+  state.books.unshift(book);
+  await openBook(book.id);
+  toast(missing.length
+    ? `Imported — ${missing.length} image${missing.length===1?"":"s"} not found (add them and re-import): ${missing.slice(0,3).join(", ")}${missing.length>3?"…":""}`
+    : "Project imported");
+}
+
 /* --------------------------- Render: timeline --------------------------- */
 function renderTimeline(){
   const b = state.book;
@@ -919,8 +1009,9 @@ function photoRow(ph, b, canLink){
   const linked = canLink && ph.linkPrev;
   const undated = ph.noExif && !ph.dateOverride;            // no real date yet
   return `<div class="tl-item ${linked?'linked':''}" data-id="${ph.id}">
-    <div class="tl-thumb" draggable="true" data-drag="${ph.id}" style="background-image:url(${url})"></div>
+    <div class="tl-thumb ${ph.missing?'miss':''}" draggable="true" data-drag="${ph.id}" style="background-image:url(${url})">${ph.missing?'⚠':''}</div>
     <div class="tl-main">
+      ${ph.missing?`<div class="tl-miss">image missing: ${esc(ph.filename||'(matched by hash)')}</div>`:''}
       <div class="tl-date ${undated?'nodate':''}">📅 <input type="date" data-date="${ph.id}" value="${dval}">${undated?`<span class="warn" title="No date is stored in this file. It was placed using the file's date — set the correct date here.">⚠ no date in file</span>`:''}</div>
       <textarea data-cap="${ph.id}" placeholder="Caption…">${esc(ph.caption||"")}</textarea>
       <div class="tl-actions">
@@ -972,7 +1063,7 @@ function findItem(id){ return state.book.timeline.find(t=>t.id===id); }
 function deletePhoto(id){
   const b = state.book;
   const p = findItem(id);
-  if (p){ DB.delBlob(p.blobId); if (state.urls[id]){ URL.revokeObjectURL(state.urls[id]); delete state.urls[id]; } }
+  if (p){ if (p.blobId) DB.delBlob(p.blobId); if (state.urls[id]){ URL.revokeObjectURL(state.urls[id]); delete state.urls[id]; } }
   b.timeline = b.timeline.filter(t=>t.id!==id);
   saveSoon(); refresh();
 }
@@ -1053,8 +1144,9 @@ function pageHtml(pg, b, i, zoom){
       let overlay = "";
       if (!below){ const txt = photoText(box.photo);
         if (txt) overlay = `<div class="scrim"></div><div class="in-cap" style="--capfs:${capFs}in">${esc(txt)}</div>`; }
+      const miss = box.photo.missing ? `<div class="ph-missing">⚠ ${esc(box.photo.filename||"image missing")}</div>` : "";
       inner += `<div class="ph${overlay?' clip':''}" style="left:${x}in;top:${y}in;width:${box.w}in;height:${box.h}in">
-          <img src="${state.urls[box.photo.id]||""}" alt="">${overlay}</div>`;
+          <img src="${state.urls[box.photo.id]||""}" alt="">${overlay}${miss}</div>`;
     } else if (box.type === "caption" && below){
       const txt = photoText(box.photo);
       if (txt) inner += `<div class="cap-below" style="left:${x}in;top:${y}in;width:${box.w}in;height:${box.h}in;--capfs:${capFs}in">${esc(txt)}</div>`;
@@ -1081,7 +1173,8 @@ async function boot(){
 }
 
 // expose a tiny read-only hook for debugging the layout engine in the console
-window.__pb = { layoutBook, layoutPage, buildSegments, orderedStream, parseExifDate, densityCfg, contentHash, downscaleBlob, MAX_DIM, get book(){ return state.book; } };
+window.__pb = { layoutBook, layoutPage, buildSegments, orderedStream, parseExifDate, densityCfg,
+                contentHash, downscaleBlob, bookToExport, MAX_DIM, get book(){ return state.book; } };
 
 boot();
 </script>
